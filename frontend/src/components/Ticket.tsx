@@ -2,7 +2,7 @@
 
 import React, { useRef, useState } from 'react';
 import { toPng } from 'html-to-image';
-import { Download, Printer, Landmark, Copy, Check, QrCode } from 'lucide-react';
+import { Download, Printer, Landmark, Copy, Check } from 'lucide-react';
 import { Registration } from '../types';
 
 interface TicketProps {
@@ -155,10 +155,18 @@ export default function Ticket({ registration }: TicketProps) {
             {/* QR Code section & stamp */}
             <div className="flex flex-col items-center justify-center border-l border-white/10 pl-4">
               <div className="p-2 bg-white rounded-xl shadow-inner mb-2">
-                <QrCode className="h-16 w-16 text-slate-950" />
+                {/* Real scannable QR code generated from lottery_number */}
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(lottery_number)}&format=png&margin=2`}
+                  alt={`QR Code for ${lottery_number}`}
+                  width={64}
+                  height={64}
+                  style={{ imageRendering: 'pixelated' }}
+                  crossOrigin="anonymous"
+                />
               </div>
               <span className="text-[9px] text-slate-400 font-mono tracking-wider">
-                Scan Secure
+                Scan to Verify
               </span>
             </div>
           </div>

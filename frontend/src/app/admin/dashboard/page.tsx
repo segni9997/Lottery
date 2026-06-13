@@ -27,14 +27,35 @@ import {
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'approvals' | 'campaigns' | 'departments' | 'reports'>('approvals');
+  const [activeTab, setActiveTab] = useState<'approvals' | 'registrations' | 'campaigns' | 'departments' | 'reports'>('approvals');
+  
+  // Search/expansion state for registrations tab
+  const [regSearch, setRegSearch] = useState('');
+  const [expandedReg, setExpandedReg] = useState<string | null>(null);
   
   // Create forms state
-  const [newCampaign, setNewCampaign] = useState({
+  const [newCampaign, setNewCampaign] = useState<{
+    title: string; holiday_name: string; description: string; draw_date: string; 
+    registration_start_date: string; registration_end_date: string; telegram_link: string; status: 'Draft' | 'Active' | 'Closed' | 'Drawn';
+  }>({
     title: '', holiday_name: '', description: '', draw_date: '', 
     registration_start_date: '', registration_end_date: '', telegram_link: '', status: 'Draft'
   });
-  const [newDept, setNewDept] = useState({ name: '', code: '', description: '', status: 'Active' });
+  const [newDept, setNewDept] = useState<{
+    name: string; code: string; description: string; status: 'Active' | 'Inactive';
+  }>({ name: '', code: '', description: '', status: 'Active' });
+
+  // Expandable campaign state
+  const [expandedCampaign, setExpandedCampaign] = useState<string | null>(null);
+  const [editingCampaign, setEditingCampaign] = useState<any | null>(null);
+
+  const formatDateTimeLocal = (dateStr: string) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    const pad = (num: number) => String(num).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
 
   // RTK Queries
   const { data: campaigns, refetch: refetchCampaigns } = useGetCampaignsQuery();
@@ -100,7 +121,7 @@ export default function AdminDashboard() {
   };
 
   const handleToggleCampaignStatus = async (id: string, currentStatus: string) => {
-    const nextStatusMap: Record<string, string> = {
+    const nextStatusMap: Record<string, 'Draft' | 'Active' | 'Closed' | 'Drawn'> = {
       'Draft': 'Active',
       'Active': 'Closed',
       'Closed': 'Drawn',
@@ -229,6 +250,7 @@ export default function AdminDashboard() {
       <div className="flex border-b border-slate-200 font-poppins text-sm">
         {[
           { id: 'approvals', label: 'Approvals Queue', icon: ShieldCheck },
+          { id: 'registrations', label: 'Registrations', icon: ClipboardList },
           { id: 'campaigns', label: 'Campaigns CRUD', icon: Trophy },
           { id: 'departments', label: 'Departments CRUD', icon: Layers },
           { id: 'reports', label: 'Reports Panel', icon: FileSpreadsheet },
@@ -325,7 +347,7 @@ export default function AdminDashboard() {
                           <p className="text-[10px] text-slate-500">
                             Code: {regItem?.lottery_number} | Installment #{inst.installment_number}
                           </p>
-                          <span className="font-mono text-emerald-700 font-bold block mt-0.5">ETB {parseFloat(inst.amount).toFixed(0)}</span>
+                          <span className="font-mono text-emerald-700 font-bold block mt-0.5">ETB {Number(inst.amount).toFixed(0)}</span>
                         </div>
                         <div>
                           <button 
@@ -342,6 +364,133 @@ export default function AdminDashboard() {
               </div>
             </div>
 
+          </div>
+        )}
+
+        {/* TAB: registrations */}
+        {activeTab === 'registrations' && (
+          <div className="glass-card p-6 border border-slate-200/50 bg-white/70 space-y-6 animate-in fade-in duration-300">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h3 className="font-poppins font-bold text-base text-slate-900 border-l-4 border-emerald-700 pl-2">
+                  Staff Registrations & Payment Approval
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Search registrations, track payments, and manually approve open/pending installments.
+                </p>
+              </div>
+              
+              <div className="w-full sm:w-72">
+                <input
+                  type="text"
+                  placeholder="Search by name, phone or lottery code..."
+                  value={regSearch}
+                  onChange={(e) => setRegSearch(e.target.value)}
+                  className="input-field py-2 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1">
+              {(registrations?.filter(reg => 
+                reg.full_name.toLowerCase().includes(regSearch.toLowerCase()) ||
+                reg.phone_number.includes(regSearch) ||
+                reg.lottery_number.toLowerCase().includes(regSearch.toLowerCase())
+              ) || []).length === 0 ? (
+                <div className="text-center py-12 text-xs text-slate-400">
+                  No registrations found matching the search criteria.
+                </div>
+              ) : (
+                (registrations?.filter(reg => 
+                  reg.full_name.toLowerCase().includes(regSearch.toLowerCase()) ||
+                  reg.phone_number.includes(regSearch) ||
+                  reg.lottery_number.toLowerCase().includes(regSearch.toLowerCase())
+                ) || []).map((reg) => {
+                  const isExpanded = expandedReg === reg.id;
+                  const approvedCount = reg.installments?.filter(i => i.status === 'Approved').length || 0;
+                  const totalCount = reg.installments?.length || 0;
+                  
+                  return (
+                    <div key={reg.id} className="p-4 rounded-2xl border border-slate-100 bg-white flex flex-col space-y-3 text-xs shadow-sm">
+                      <div 
+                        className="flex justify-between items-center cursor-pointer select-none"
+                        onClick={() => setExpandedReg(isExpanded ? null : reg.id)}
+                      >
+                        <div className="space-y-1">
+                          <span className="font-bold text-slate-950 text-sm block">{reg.full_name}</span>
+                          <p className="text-[10px] text-slate-400">
+                            Lottery No: <strong className="text-emerald-700 font-bold">{reg.lottery_number}</strong> | Phone: {reg.phone_number}
+                          </p>
+                        </div>
+                        
+                        <div className="flex items-center gap-3">
+                          <span className={`px-2 py-0.5 rounded font-mono text-[9px] font-bold uppercase ${
+                            reg.is_eligible ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-50 text-slate-400 border border-slate-100'
+                          }`}>
+                            {reg.is_eligible ? 'Eligible' : 'Ineligible'}
+                          </span>
+                          <span className="text-[10px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded font-medium">
+                            Paid: {approvedCount}/{totalCount}
+                          </span>
+                          <span className="text-slate-400 font-semibold select-none">
+                            {isExpanded ? '▲' : '▼'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {isExpanded && (
+                        <div className="pt-3 border-t border-slate-100 space-y-4 text-slate-600 animate-in fade-in duration-200">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50/50 p-3 rounded-2xl border border-slate-100 text-[11px]">
+                            <p><strong>Campaign:</strong> {reg.campaign_detail?.title}</p>
+                            <p><strong>Department:</strong> {reg.department_detail?.name} ({reg.department_detail?.code})</p>
+                            <p><strong>Payment Plan:</strong> {reg.payment_plan_detail?.name}</p>
+                            <p><strong>Date Registered:</strong> {new Date(reg.created_at).toLocaleString()}</p>
+                          </div>
+
+                          <div className="space-y-2">
+                            <span className="font-bold text-slate-900 block text-[11px] border-b pb-1">Installment Statuses & Action</span>
+                            
+                            <div className="grid grid-cols-1 gap-2.5">
+                              {reg.installments?.map((inst) => (
+                                <div key={inst.id} className="p-3.5 rounded-2xl border border-slate-100 bg-white flex justify-between items-center text-xs hover:border-slate-200 transition-all">
+                                  <div className="space-y-1">
+                                    <span className="font-bold text-slate-800 font-poppins">Installment #{inst.installment_number}</span>
+                                    <p className="text-[10px] text-slate-500 font-mono">Amount: ETB {Number(inst.amount).toFixed(0)}</p>
+                                  </div>
+                                  
+                                  <div className="flex items-center gap-3">
+                                    <span className={`px-2.5 py-1 rounded-xl font-mono text-[9px] font-bold uppercase ${
+                                      inst.status === 'Approved' ? 'bg-emerald-50 text-emerald-700' :
+                                      inst.status === 'Paid' ? 'bg-amber-50 text-amber-700 animate-pulse' :
+                                      'bg-slate-50 text-slate-500'
+                                    }`}>
+                                      {inst.status}
+                                    </span>
+                                    
+                                    {inst.status !== 'Approved' ? (
+                                      <button
+                                        onClick={() => handleApprovePayment(inst.id)}
+                                        className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-all shadow-sm shadow-emerald-700/10 cursor-pointer"
+                                      >
+                                        Approve Payment
+                                      </button>
+                                    ) : (
+                                      <span className="text-emerald-500 text-[10px] font-semibold flex items-center gap-1">
+                                        ✓ Approved
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         )}
 
@@ -440,27 +589,71 @@ export default function AdminDashboard() {
               
               <div className="space-y-3 max-h-[450px] overflow-y-auto">
                 {campaigns?.map((camp) => (
-                  <div key={camp.id} className="p-4 rounded-2xl border border-slate-100 bg-white flex justify-between items-center text-xs">
-                    <div className="space-y-1">
-                      <span className="font-bold text-slate-950">{camp.title}</span>
-                      <p className="text-[10px] text-slate-400">Draw Date: {new Date(camp.draw_date).toLocaleString()}</p>
+                  <div key={camp.id} className="p-4 rounded-2xl border border-slate-100 bg-white flex flex-col space-y-3 text-xs">
+                    <div 
+                      className="flex justify-between items-center cursor-pointer" 
+                      onClick={() => setExpandedCampaign(expandedCampaign === camp.id ? null : camp.id)}
+                    >
+                      <div className="space-y-1">
+                        <span className="font-bold text-slate-950 text-sm block">{camp.title}</span>
+                        <p className="text-[10px] text-slate-400">Draw Date: {new Date(camp.draw_date).toLocaleString()}</p>
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        <span className={`px-2 py-0.5 rounded font-mono text-[9px] font-bold uppercase ${
+                          camp.status === 'Active' ? 'bg-emerald-50 text-emerald-700' :
+                          camp.status === 'Draft' ? 'bg-slate-100 text-slate-500' :
+                          'bg-amber-50 text-amber-700'
+                        }`}>
+                          {camp.status}
+                        </span>
+                        <span className="text-slate-400 font-semibold select-none">
+                          {expandedCampaign === camp.id ? '▲' : '▼'}
+                        </span>
+                      </div>
                     </div>
-                    
-                    <div className="flex items-center gap-3">
-                      <span className={`px-2 py-0.5 rounded font-mono text-[9px] font-bold uppercase ${
-                        camp.status === 'Active' ? 'bg-emerald-50 text-emerald-700' :
-                        camp.status === 'Draft' ? 'bg-slate-100 text-slate-500' :
-                        'bg-amber-50 text-amber-700'
-                      }`}>
-                        {camp.status}
-                      </span>
-                      <button
-                        onClick={() => handleToggleCampaignStatus(camp.id, camp.status)}
-                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold"
-                      >
-                        Advance Status
-                      </button>
-                    </div>
+
+                    {expandedCampaign === camp.id && (
+                      <div className="pt-3 border-t border-slate-100 space-y-3 text-slate-600">
+                        <p><strong>Holiday Draw:</strong> {camp.holiday_name}</p>
+                        <p><strong>Description:</strong> {camp.description}</p>
+                        
+                        <div className="grid grid-cols-2 gap-4 text-[11px] bg-slate-50 p-3 rounded-xl border border-slate-100">
+                          <div>
+                            <span className="text-slate-400 block uppercase font-mono text-[9px] tracking-wider mb-0.5">Registration Start</span>
+                            <strong className="text-slate-800">{new Date(camp.registration_start_date).toLocaleString()}</strong>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block uppercase font-mono text-[9px] tracking-wider mb-0.5">Registration End</span>
+                            <strong className="text-slate-800">{new Date(camp.registration_end_date).toLocaleString()}</strong>
+                          </div>
+                        </div>
+
+                        {camp.telegram_link && (
+                          <p>
+                            <strong>Telegram Link:</strong>{' '}
+                            <a href={camp.telegram_link} target="_blank" rel="noopener noreferrer" className="text-emerald-700 hover:underline font-medium">
+                              {camp.telegram_link}
+                            </a>
+                          </p>
+                        )}
+
+                        <div className="flex justify-end gap-2 pt-2 border-t border-slate-50">
+                          <button
+                            onClick={() => setEditingCampaign(camp)}
+                            className="px-3 py-1.5 rounded-lg border border-slate-200 text-emerald-700 hover:bg-slate-50 font-semibold transition-colors"
+                          >
+                            Edit Details
+                          </button>
+                          <button
+                            onClick={() => handleToggleCampaignStatus(camp.id, camp.status)}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-colors shadow-sm"
+                          >
+                            Advance Status
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -595,6 +788,153 @@ export default function AdminDashboard() {
         )}
 
       </div>
+
+      {/* Edit Campaign Modal */}
+      {editingCampaign && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-8 border border-slate-200 shadow-2xl relative animate-in zoom-in duration-300 text-slate-900 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6 border-b pb-3">
+              <h2 className="text-lg font-poppins font-extrabold text-slate-900">
+                Edit Campaign Details
+              </h2>
+              <button 
+                onClick={() => setEditingCampaign(null)} 
+                className="text-slate-400 hover:text-slate-600 transition-colors p-1"
+              >
+                <XCircle className="h-6 w-6" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  await updateCampaign({
+                    id: editingCampaign.id,
+                    body: {
+                      title: editingCampaign.title,
+                      holiday_name: editingCampaign.holiday_name,
+                      description: editingCampaign.description,
+                      draw_date: editingCampaign.draw_date,
+                      registration_start_date: editingCampaign.registration_start_date,
+                      registration_end_date: editingCampaign.registration_end_date,
+                      telegram_link: editingCampaign.telegram_link,
+                      status: editingCampaign.status,
+                    }
+                  }).unwrap();
+                  refetchCampaigns();
+                  setEditingCampaign(null);
+                  alert('Campaign updated successfully!');
+                } catch (err) {
+                  console.error(err);
+                  alert('Failed to update campaign');
+                }
+              }}
+              className="space-y-4 text-xs"
+            >
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Title</label>
+                <input
+                  type="text"
+                  value={editingCampaign.title || ''}
+                  onChange={(e) => setEditingCampaign({ ...editingCampaign, title: e.target.value })}
+                  className="input-field py-2"
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Holiday Name</label>
+                <input
+                  type="text"
+                  value={editingCampaign.holiday_name || ''}
+                  onChange={(e) => setEditingCampaign({ ...editingCampaign, holiday_name: e.target.value })}
+                  className="input-field py-2"
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Description</label>
+                <textarea
+                  value={editingCampaign.description || ''}
+                  onChange={(e) => setEditingCampaign({ ...editingCampaign, description: e.target.value })}
+                  className="input-field py-2 h-20"
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Status</label>
+                <select
+                  value={editingCampaign.status || 'Draft'}
+                  onChange={(e) => setEditingCampaign({ ...editingCampaign, status: e.target.value })}
+                  className="input-field py-2 cursor-pointer"
+                  required
+                >
+                  <option value="Draft">Draft</option>
+                  <option value="Active">Active</option>
+                  <option value="Closed">Closed</option>
+                  <option value="Drawn">Drawn</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Draw Date</label>
+                <input
+                  type="datetime-local"
+                  value={formatDateTimeLocal(editingCampaign.draw_date)}
+                  onChange={(e) => setEditingCampaign({ ...editingCampaign, draw_date: e.target.value })}
+                  className="input-field py-2"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Registration Start</label>
+                  <input
+                    type="datetime-local"
+                    value={formatDateTimeLocal(editingCampaign.registration_start_date)}
+                    onChange={(e) => setEditingCampaign({ ...editingCampaign, registration_start_date: e.target.value })}
+                    className="input-field py-2"
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Registration End</label>
+                  <input
+                    type="datetime-local"
+                    value={formatDateTimeLocal(editingCampaign.registration_end_date)}
+                    onChange={(e) => setEditingCampaign({ ...editingCampaign, registration_end_date: e.target.value })}
+                    className="input-field py-2"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Telegram Link</label>
+                <input
+                  type="url"
+                  value={editingCampaign.telegram_link || ''}
+                  onChange={(e) => setEditingCampaign({ ...editingCampaign, telegram_link: e.target.value })}
+                  className="input-field py-2"
+                />
+              </div>
+              <div className="flex gap-3 pt-4 border-t mt-6">
+                <button
+                  type="button"
+                  onClick={() => setEditingCampaign(null)}
+                  className="flex-1 py-2.5 text-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold border border-slate-200 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 text-center rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-semibold transition-all shadow-md cursor-pointer"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

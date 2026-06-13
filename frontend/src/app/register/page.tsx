@@ -132,6 +132,25 @@ export default function Register() {
             </div>
           )}
 
+          {/* Telegram Channel Callout */}
+          {selectedCampaign?.telegram_link && (
+            <div className="p-4 bg-sky-50 border border-sky-100 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs animate-in fade-in duration-300">
+              <div className="space-y-0.5 text-slate-700">
+                <p className="font-semibold text-slate-900">Official Telegram Channel</p>
+                <p className="text-slate-500">Join to submit your payment proof for faster manual verification.</p>
+              </div>
+              <a
+                href={selectedCampaign.telegram_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3.5 py-1.5 bg-[#229ED9] hover:bg-[#208ebd] text-white rounded-lg font-semibold flex items-center gap-1.5 transition-all shadow-sm shrink-0"
+              >
+                <TelegramIcon className="h-3.5 w-3.5" />
+                <span>Join Channel</span>
+              </a>
+            </div>
+          )}
+
           {/* 1. Campaign Selection */}
           <div className="space-y-2">
             <label className="text-xs font-poppins font-semibold text-slate-700 uppercase tracking-wider block">

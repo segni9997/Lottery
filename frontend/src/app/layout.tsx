@@ -18,8 +18,6 @@ const poppins = Poppins({
   variable: '--font-poppins',
   display: 'swap',
 });
-  git config--global user.email "you@example.com"
-  git config--global user.name "Your Name"
 
 export const metadata: Metadata = {
   title: 'Berhan Staff Lottery Management Platform',
