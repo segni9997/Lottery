@@ -1,0 +1,38 @@
+{
+  "name": "berhan-lottery-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "set NEXT_DISABLE_SWC=1 && npx next dev --webpack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^3.4.0",
+    "@reduxjs/toolkit": "^2.2.3",
+    "canvas-confetti": "^1.9.3",
+    "clsx": "^2.1.0",
+    "framer-motion": "^11.1.7",
+    "html-to-image": "^1.11.11",
+    "lucide-react": "^1.17.0",
+    "next": "16.2.7",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-hook-form": "^7.51.3",
+    "react-redux": "^9.1.1",
+    "tailwind-merge": "^2.2.2",
+    "@hookform/resolvers": "^3.4.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/canvas-confetti": "^1.6.4",
+    "@types/node": "^20.12.7",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "autoprefixer": "^10.4.14",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.4.5"
+  }
+}

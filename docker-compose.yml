@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: berhan_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: berhan_lottery
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    container_name: berhan_backend
+    restart: always
+    environment:
+      - DB_NAME=berhan_lottery
+      - DB_USER=postgres
+      - DB_PASSWORD=postgrespassword
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DJANGO_DEBUG=False
+      - DJANGO_SECRET_KEY=production-secure-django-key-replace-in-real-env-12345
+      - ALLOWED_HOSTS=*
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/media:/app/media
+      - ./backend/staticfiles:/app/staticfiles
+    depends_on:
+      - db
+
+  frontend:
+    build: ./frontend
+    container_name: berhan_frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://backend:8000
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
